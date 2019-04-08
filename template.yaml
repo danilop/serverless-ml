@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+    Sample serverless data pipeline powered by machine learning
+
+Globals:
+    Function:
+        Timeout: 30
+
+Resources:
+
+    DataBucket:
+        Type: AWS::S3::Bucket
+        Properties:
+            BucketName: !Sub "${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-data"
+                    
+    IndexBucket:
+        Type: AWS::S3::Bucket
+        
+    ServerlessMLFuntion:
+        Type: AWS::Serverless::Function
+        Properties:
+            CodeUri: serverless-ml/
+            Handler: app.lambdaHandler
+            Runtime: nodejs8.10
+            Policies:
+              - Statement: 
+                - Effect: Allow
+                  Action: s3:GetObject*
+                  Resource: !Sub "arn:aws:s3:::${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-data*"
+              - Statement: 
+                - Effect: Allow
+                  Action: s3:PutObject
+                  Resource: !Sub "${IndexBucket.Arn}/*"
+              - Statement:
+                - Effect: Allow
+                  Action:
+                    - 'rekognition:DetectModerationLabels'
+                    - 'rekognition:DetectLabels'
+                    - 'rekognition:DetectText'
+                    - 'rekognition:DetectFaces'
+                    - 'comprehend:DetectDominantLanguage'
+                    - 'comprehend:DetectEntities'
+                    - 'comprehend:DetectKeyPhrases'
+                    - 'comprehend:DetectSentiment'
+                    - 'translate:TranslateText'
+                  Resource: '*'
+            Environment:
+                Variables:
+                    INDEX_BUCKET: !Ref IndexBucket                  
+            Events:
+                ImageUpload:
+                    Type: S3
+                    Properties:
+                        Bucket: !Ref DataBucket
+                        Events: s3:ObjectCreated:*
+
+Outputs:
+
+    DataBucket:
+        Description: "Data S3 bucket"
+        Value: !Ref DataBucket
+
+    IndexBucket:
+        Description: "Index S3 bucket"
+        Value: !Ref IndexBucket
+
+    ServerlessMLFuntion:
+        Description: "Serverless ML Lambda Function ARN"
+        Value: !GetAtt ServerlessMLFuntion.Arn
+
+    ServerlessMLFuntionIamRole:
+        Description: "Implicit IAM Role created for Serverless ML function"
+        Value: !GetAtt ServerlessMLFuntionRole.Arn

@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Sample serverless data pipeline powered by machine learning
+
+  '
+Globals:
+  Function:
+    Timeout: 30
+Outputs:
+  DataBucket:
+    Description: Data S3 bucket
+    Value:
+      Ref: DataBucket
+  IndexBucket:
+    Description: Index S3 bucket
+    Value:
+      Ref: IndexBucket
+  ServerlessMLFuntion:
+    Description: Serverless ML Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - ServerlessMLFuntion
+      - Arn
+  ServerlessMLFuntionIamRole:
+    Description: Implicit IAM Role created for Serverless ML function
+    Value:
+      Fn::GetAtt:
+      - ServerlessMLFuntionRole
+      - Arn
+Resources:
+  DataBucket:
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-data
+    Type: AWS::S3::Bucket
+  IndexBucket:
+    Type: AWS::S3::Bucket
+  ServerlessMLFuntion:
+    Properties:
+      CodeUri: s3://danilop-packages/2b4fc0a59ad8a4387bf2a35d5b5f0173
+      Environment:
+        Variables:
+          INDEX_BUCKET:
+            Ref: IndexBucket
+      Events:
+        ImageUpload:
+          Properties:
+            Bucket:
+              Ref: DataBucket
+            Events: s3:ObjectCreated:*
+          Type: S3
+      Handler: app.lambdaHandler
+      Policies:
+      - Statement:
+        - Action: s3:GetObject*
+          Effect: Allow
+          Resource:
+            Fn::Sub: arn:aws:s3:::${AWS::StackName}-${AWS::Region}-${AWS::AccountId}-data*
+      - Statement:
+        - Action: s3:PutObject
+          Effect: Allow
+          Resource:
+            Fn::Sub: ${IndexBucket.Arn}/*
+      - Statement:
+        - Action:
+          - rekognition:DetectModerationLabels
+          - rekognition:DetectLabels
+          - rekognition:DetectText
+          - rekognition:DetectFaces
+          - comprehend:DetectDominantLanguage
+          - comprehend:DetectEntities
+          - comprehend:DetectKeyPhrases
+          - comprehend:DetectSentiment
+          - translate:TranslateText
+          Effect: Allow
+          Resource: '*'
+      Runtime: nodejs8.10
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
